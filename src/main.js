@@ -94,6 +94,7 @@ function init() {
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
 
+  window.addEventListener("touchstart", onClick);
   window.addEventListener("click", onClick);
 
   // #region //Bloom composer
