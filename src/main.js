@@ -3,7 +3,10 @@ import * as THREE from "three";
 import GUI from "lil-gui";
 import { gsap } from "gsap";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import { FirstPersonControls } from "three/addons/controls/FirstPersonControls.js";
+// import { EffectComposer } from "three/addons/postprocessing/EffectComposer.js";
+// import { RenderPass } from "three/addons/postprocessing/RenderPass.js";
+// import { ShaderPass } from "three/addons/postprocessing/ShaderPass.js";
+// import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import {
   mercuryMeasurments,
   venusMeasurments,
@@ -25,7 +28,9 @@ let scene,
   textureLoader,
   raycaster,
   mouse,
-  clickedObject,
+  clickedPlanet,
+  // bloomComposer,
+  // finalComposer,
   followMode = false,
   planetMeshes = [];
 let sun,
@@ -73,7 +78,7 @@ function init() {
   createSolarSystem();
 
   {
-    const color = 0xffffff;
+    const color = 0xf3ffc7;
     const light = new THREE.AmbientLight(color, 0.2);
     const pointLight = new THREE.PointLight(color, 500000);
     scene.add(pointLight);
@@ -82,26 +87,60 @@ function init() {
 
   controls = new OrbitControls(camera, canvas);
   controls.enableDamping = true;
-  // controls = new FirstPersonControls(camera, renderer.domElement);
-  // controls.lookSpeed = 0.3; // hur snabbt du roterar med musen
-  // controls.movementSpeed = 500; // hur snabbt du rör dig med tangentbordet
-  // controls.lookVertical = true; // tillåt vertikal rotation
-  // controls.constrainVertical = false; // ingen begränsning upp/ner
 
   camera.position.copy(defaultCameraPosition);
-  // renderer.physicallyCorrectLights = false;
 
   //Raycaster
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
 
-  // Eventlistener för klick
-  window.addEventListener("click", onDoubleClick);
+  window.addEventListener("click", onClick);
 
+  // #region //Bloom composer
+
+  // const params = {
+  //   threshold: 0,
+  //   strength: 1,
+  //   radius: 0.5,
+  //   exposure: 1,
+  // };
+
+  // const renderScene = new RenderPass(scene, camera);
+  // const bloomPass = new UnrealBloomPass(
+  //   new THREE.Vector2(window.innerWidth, window.innerHeight),
+  //   params.strength, // strength
+  //   params.radius, // radius
+  //   params.threshold // threshold
+  // );
+
+  // bloomComposer = new EffectComposer(renderer);
+  // bloomComposer.addPass(renderScene);
+  // bloomComposer.addPass(bloomPass);
+
+  // const bloomFolder = gui.addFolder("BloomPass");
+  // bloomFolder.add(params, "threshold", 0.0, 1.0).onChange(function (value) {
+  //   bloomPass.threshold = Number(value);
+  // });
+
+  // bloomFolder.add(params, "strength", 0.0, 3).onChange(function (value) {
+  //   bloomPass.strength = Number(value);
+  // });
+
+  // bloomFolder
+  //   .add(params, "radius", 0.0, 1.0)
+  //   .step(0.01)
+  //   .onChange(function (value) {
+  //     bloomPass.radius = Number(value);
+  //   });
+
+  // // Final composer
+  // finalComposer = new EffectComposer(renderer);
+  // finalComposer.addPass(renderScene);
+  //#endregion
   renderer.setAnimationLoop(animate);
 }
 
-function onDoubleClick(event) {
+function onClick(event) {
   mouse.set(
     (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
     -(event.clientY / renderer.domElement.clientHeight) * 2 + 1
@@ -112,26 +151,19 @@ function onDoubleClick(event) {
   const intersects = raycaster.intersectObjects(planetMeshes);
 
   if (intersects.length > 0) {
+    clickedPlanet = intersects[0].object;
     followMode = !followMode;
-    clickedObject = intersects[0].object;
 
-    const offset = new THREE.Vector3(
-      clickedObject.radius + 20,
-      clickedObject.radius + 20,
-      clickedObject.radius + 20
-    );
-
-    const targetPos = clickedObject.position.clone().add(offset);
-
-    gsap.to(camera.position, {
-      duration: 2,
-      x: targetPos.x,
-      y: targetPos.y,
-      z: targetPos.z,
-      onUpdate: () => controls.update(),
-    });
-
-    controls.target.copy(clickedObject.position);
+    if (!followMode) {
+      gsap.to(camera.position, {
+        duration: 2,
+        x: defaultCameraPosition.x,
+        y: defaultCameraPosition.y,
+        z: defaultCameraPosition.z,
+        onUpdate: () => controls.update(),
+      });
+      controls.target.copy(sun.position);
+    }
   }
 }
 
@@ -271,27 +303,10 @@ function createSun() {
   const sunTexture = textureLoader.load(sunMeasurments.texturePath);
 
   const sunGeometry = new THREE.SphereGeometry(sunMeasurments.radius, 32, 32);
-  const sunMaterial = new THREE.MeshStandardMaterial({
+  const sunMaterial = new THREE.MeshBasicMaterial({
     map: sunTexture,
-    emissive: new THREE.Color(0x0f0f00), // gul glöd
-    emissiveIntensity: 0.9,
-    roughness: 1,
-    metalness: 0,
   });
-  // #region GUI Sun
-  gui
-    .add(sunMaterial, "emissiveIntensity", 0, 5, 0.1)
-    .name("Sun Glow Intensity")
-    .onChange((value) => {
-      sunMaterial.emissiveIntensity = value;
-    });
-  gui
-    .addColor(sunMaterial, "emissive")
-    .name("Sun Glow Color")
-    .onChange((value) => {
-      sunMaterial.emissive = new THREE.Color(value);
-    });
-  //#endregion
+
   sun = new THREE.Mesh(sunGeometry, sunMaterial);
   sun.radius = sunMeasurments.radius;
 
@@ -363,19 +378,25 @@ function animate() {
   animatePlanet(uranus, elapsed);
   animatePlanet(neptune, elapsed);
 
-  if (clickedObject) {
-    const offset = new THREE.Vector3(
-      clickedObject.radius + 20,
-      clickedObject.radius + 20,
-      clickedObject.radius + 20
-    );
+  if (clickedPlanet) {
     if (followMode) {
-      camera.position.copy(clickedObject.position).add(offset);
-      controls.target.copy(clickedObject.position);
-    } else {
-      // måste anväda gasp för att animera tillbaka till default position
-      camera.position.copy(defaultCameraPosition);
-      controls.target.copy(sun.position);
+      const offset = new THREE.Vector3(
+        clickedPlanet.radius + 20,
+        clickedPlanet.radius + 20,
+        clickedPlanet.radius + 20
+      );
+
+      const targetPos = clickedPlanet.position.clone().add(offset);
+
+      gsap.to(camera.position, {
+        duration: 2,
+        x: targetPos.x,
+        y: targetPos.y,
+        z: targetPos.z,
+        onUpdate: () => controls.update(),
+      });
+
+      controls.target.copy(clickedPlanet.position);
     }
   }
   if (controls) controls.update(delta);
