@@ -141,10 +141,26 @@ function init() {
   renderer.setAnimationLoop(animate);
 }
 
+function getPointerPosition(event) {
+  if (event.touches && event.touches.length > 0) {
+    return {
+      x: event.touches[0].clientX,
+      y: event.touches[0].clientY,
+    };
+  } else {
+    return {
+      x: event.clientX,
+      y: event.clientY,
+    };
+  }
+}
+
 function onClick(event) {
+  const pos = getPointerPosition(event);
+
   mouse.set(
-    (event.clientX / renderer.domElement.clientWidth) * 2 - 1,
-    -(event.clientY / renderer.domElement.clientHeight) * 2 + 1
+    (pos.x / renderer.domElement.clientWidth) * 2 - 1,
+    -(pos.y / renderer.domElement.clientHeight) * 2 + 1
   );
 
   raycaster.setFromCamera(mouse, camera);
