@@ -2,10 +2,39 @@ html,
 body {
   margin: 0;
   height: 100%;
+  color: #fff;
+  font-family: Monospace;
+  font-size: 13px;
+  line-height: 24px;
 }
 
 canvas.webgl {
   width: 100%;
   height: 100%;
   display: block;
+}
+
+a {
+  color: #ff0;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+#info {
+  position: absolute;
+  top: 0px;
+  width: 100%;
+  padding: 10px;
+  box-sizing: border-box;
+  text-align: center;
+  -moz-user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  z-index: 122; /* TODO Solve this in HTML */
 }
